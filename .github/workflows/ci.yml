@@ -1,0 +1,51 @@
+# 工作流名称：持续集成（CI）
+name: CI
+
+# 触发条件：当向以下分支发起 Pull Request 时触发
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+      - develop
+    # PR 活动类型：新建 / 同步（提交更新）/ 重新打开 / 准备好评审（从草稿状态切换）
+    types: [opened, synchronize, reopened, ready_for_review]
+
+# 权限控制：遵循最小权限原则，仅授予只读权限，降低安全风险
+permissions:
+  contents: read        # 仅允许读取仓库代码（checkout 所需）
+  pull-requests: read   # 仅允许读取 PR 信息（用于状态检查报告）
+
+jobs:
+  # 任务：执行代码检查与单元测试
+  lint-and-test:
+    runs-on: ubuntu-latest   # 运行环境：Ubuntu 最新版
+
+    strategy:
+      matrix:
+        # Node.js 版本矩阵：可在多个版本上并行测试（当前仅 18.x）
+        node-version: [18.x]
+
+    steps:
+      # 步骤 1：检出仓库代码到 runner
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 步骤 2：配置 Node.js 运行环境，并启用 npm 缓存加速后续安装
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      # 步骤 3：安装项目依赖（npm ci 比 npm install 更严格、更稳定，推荐用于 CI）
+      - name: Install dependencies
+        run: npm ci
+
+      # 步骤 4：运行代码规范检查（eslint）
+      - name: Run Lint
+        run: npm run lint
+
+      # 步骤 5：运行单元测试（jest）
+      - name: Run Tests
+        run: npm run test
