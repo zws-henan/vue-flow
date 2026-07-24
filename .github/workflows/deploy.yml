@@ -1,0 +1,73 @@
+# 工作流名称：部署到 GitHub Pages
+name: Deploy to GitHub Pages
+
+# 触发条件：当 main 分支有代码推送（PR 合并）时触发
+on:
+  push:
+    branches:
+      - main
+
+# 权限控制：部署需要写入 Pages 权限
+permissions:
+  contents: read    # 读取仓库代码
+  pages: write      # 写入 GitHub Pages 部署信息
+  id-token: write   # 验证部署来源身份
+
+# 并发控制：避免同一时刻多个部署任务冲突
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  # 任务 1：构建项目
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 步骤 1：检出仓库代码
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 步骤 2：配置 Node.js 环境，启用 npm 缓存
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # 步骤 3：安装项目依赖
+      - name: Install dependencies
+        run: npm install
+
+      # 步骤 4：运行 Lint 代码检查（合并到 main 前再校验一次）
+      - name: Run Lint
+        run: npm run lint
+
+      # 步骤 5：运行单元测试（合并到 main 前再校验一次）
+      - name: Run Tests
+        run: npm run test
+
+      # 步骤 6：构建项目（vite build）
+      - name: Build project
+        run: npm run build
+
+      # 步骤 7：上传构建产物（dist 目录）供部署任务使用
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  # 任务 2：部署到 GitHub Pages
+  deploy:
+    # 依赖 build 任务完成后才执行
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      # 步骤 1：部署构建产物到 GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
