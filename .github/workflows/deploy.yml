@@ -1,4 +1,4 @@
-# 工作流名称：部署到 GitHub Pages
+# 工作流名称：部署到 GitHub Pages（gh-pages 分支方式）
 name: Deploy to GitHub Pages
 
 # 触发条件：当 main 分支有代码推送（PR 合并）时触发
@@ -7,20 +7,13 @@ on:
     branches:
       - main
 
-# 权限控制：部署需要写入 Pages 权限
+# 权限控制：需要写入仓库代码权限（用于推送 gh-pages 分支）
 permissions:
-  contents: read    # 读取仓库代码
-  pages: write      # 写入 GitHub Pages 部署信息
-  id-token: write   # 验证部署来源身份
-
-# 并发控制：避免同一时刻多个部署任务冲突
-concurrency:
-  group: "pages"
-  cancel-in-progress: false
+  contents: write
 
 jobs:
-  # 任务 1：构建项目
-  build:
+  # 任务：构建并部署到 gh-pages 分支
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -51,23 +44,9 @@ jobs:
       - name: Build project
         run: npm run build
 
-      # 步骤 7：上传构建产物（dist 目录）供部署任务使用
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v3
+      # 步骤 7：部署构建产物到 gh-pages 分支
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: ./dist
-
-  # 任务 2：部署到 GitHub Pages
-  deploy:
-    # 依赖 build 任务完成后才执行
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    steps:
-      # 步骤 1：部署构建产物到 GitHub Pages
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
